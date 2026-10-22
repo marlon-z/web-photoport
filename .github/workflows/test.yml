@@ -23,4 +23,6 @@ jobs:
       - run: npm test
       - run: npm run test:site
       - run: npm run audit:release
+      - run: npm audit --omit=dev --audit-level=moderate
+        if: matrix.os == 'ubuntu-latest'
 

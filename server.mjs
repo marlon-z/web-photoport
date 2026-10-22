@@ -37,7 +37,7 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
       // prevents an already-written file being overwritten after a crash.
       if(job.busy&&job.rows.length>1000&&Date.now()-savedAt<750)return;
       savedAt=Date.now();
-      try{await checkpoints.save(job);job.saveError='';}catch{job.saveError='任务进度保存失败，已暂停。请检查数据库或磁盘后重试。';job.pause();}
+      try{await checkpoints.save(job);if(!job.cancelled)job.saveError='';}catch{job.saveError='任务进度保存失败，已暂停。请检查数据库或磁盘后重试。';job.pause();}
     };
   }
   async function hydrate(id,session) {

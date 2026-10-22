@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,readFile,stat,writeFile,mkdir,readdir} from 'node:fs/promises';
+import {mkdtemp,readFile,stat,writeFile,mkdir,readdir,rename} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawn} from 'node:child_process';
@@ -18,6 +18,19 @@ async function client(origin){
   };
 }
 async function settled(call,id){for(let i=0;i<500;i++){const j=(await call(`/api/jobs/${id}`)).data;if(!j.busy)return j;await new Promise(r=>setTimeout(r,10));}throw new Error('timeout');}
+
+test('进度文件短暂被占用时重试原子替换；持续写入错误保留上一份完整进度',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'photoport-checkpoint-lock-'));
+  const id='01010101-0101-4101-8101-010101010101';let value=1,attempts=0,failures=0,code='EPERM';
+  const store=new Checkpoints(root,{sleep:async()=>{},renameFile:async(from,to)=>{attempts++;if(failures-->0)throw Object.assign(new Error('simulated lock'),{code});return rename(from,to);}});
+  const job={id,refs:{source:{mode:'demo'}},summary:()=>({id,rows:[],value})};
+  await store.save(job);value=2;attempts=0;failures=2;await store.save(job);
+  assert.equal(attempts,3);assert.equal((await store.read(id)).job.value,2);
+  value=3;attempts=0;failures=100;await assert.rejects(store.save(job),{code:'EPERM'});
+  assert.equal(attempts,8);assert.equal((await store.read(id)).job.value,2);
+  attempts=0;code='ENOSPC';await assert.rejects(store.save(job),{code:'ENOSPC'});
+  assert.equal(attempts,1);assert.equal((await store.read(id)).job.value,2);
+});
 
 test('8张同时复制时杀死进程，重新连接能核对副本并续搬，已完成文件不覆盖',async t=>{
   const runtime=await mkdtemp(join(tmpdir(),'photoport-crash-'));

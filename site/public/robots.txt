@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /remove
+Sitemap: https://photoport-local.pages.dev/sitemap.xml

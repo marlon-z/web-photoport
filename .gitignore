@@ -1,0 +1,14 @@
+node_modules/
+.runtime*/
+.env*
+!.env.example
+.wrangler/
+test-results/
+release/
+*.log
+.DS_Store
+Thumbs.db
+site/public/example.zip
+site/public/example.xlsx
+site/.dev.vars
+

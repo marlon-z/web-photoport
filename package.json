@@ -1,0 +1,32 @@
+{
+  "name": "photoport-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Export Airtable attachments into organized folders, ZIP archives and Excel catalogs on your own computer.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marlon-z/web-photoport.git"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:site": "node --test site/test/*.test.mjs",
+    "audit:release": "node scripts/audit-release.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1155.0",
+    "exceljs": "4.4.0",
+    "sharp": "0.35.5",
+    "yazl": "3.3.1"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import {normalizeLanguage,translate} from './public/i18n.js';
 import http from 'node:http';
 import { readFile, mkdir,stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -16,7 +17,7 @@ import { demoSource } from './lib/demo.mjs';
 
 const ROOT=dirname(fileURLToPath(import.meta.url));
 // The same UI can still run in the original localhost-only edition.
-const staticFiles={'/':['index.html','text/html; charset=utf-8'],'/app':['app.html','text/html; charset=utf-8'],'/app/':['app.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gallery.js':['gallery.js','text/javascript; charset=utf-8'],'/filters.js':['filters.js','text/javascript; charset=utf-8'],'/workflow.js':['workflow.js','text/javascript; charset=utf-8'],'/blue.css':['blue.css','text/css; charset=utf-8'],'/live.css':['live.css','text/css; charset=utf-8'],'/assets/products.png':['assets/products.png','image/png'],'/favicon.svg':['favicon.svg','image/svg+xml']};
+const staticFiles={...Object.fromEntries(['locale.js','i18n.js','messages.en.js','home.js'].map(f=>['/'+f,[f,'text/javascript; charset=utf-8']])),'/':['index.html','text/html; charset=utf-8'],'/app':['app.html','text/html; charset=utf-8'],'/app/':['app.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gallery.js':['gallery.js','text/javascript; charset=utf-8'],'/filters.js':['filters.js','text/javascript; charset=utf-8'],'/workflow.js':['workflow.js','text/javascript; charset=utf-8'],'/blue.css':['blue.css','text/css; charset=utf-8'],'/live.css':['live.css','text/css; charset=utf-8'],'/assets/products.png':['assets/products.png','image/png'],'/favicon.svg':['favicon.svg','image/svg+xml']};
 export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,concurrency=2,sourceFactory=(token,baseId)=>new AirtableSource(token,baseId),csvSourceFactory=text=>new CSVSource(text),publicOrigin=null,internalSecret=null,listAllSaved=false,checkpointStore=null,durable=false,destinationFactory=(root,origin,options)=>new LocalDestination(root,origin,options)}={}) {
   if(durable||publicOrigin||internalSecret||checkpointStore)throw new Error('This release supports localhost-only operation.');
   if(!Number.isInteger(concurrency)||concurrency<1||concurrency>8)throw new Error('PHOTOPORT_CONCURRENCY must be an integer from 1 to 8.');
@@ -24,8 +25,8 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
   const checkpoints=checkpointStore??new Checkpoints(join(runtime,'jobs'));
   const sessions=new Map(),archives=new Map(); let origin='';
   const preview=createPreviews();
-  const describe=job=>{
-    const summary=job.summary(),layout=layoutOverview(summary.rows,summary.organization,summary.recordData);
+  const describe=(job,locale="zh-CN")=>{
+    const summary=job.summary(),layout=layoutOverview(summary.rows,summary.organization,summary.recordData,locale);
     return {...summary,imported:!!job.imported,folderPreview:layout.paths,layoutOverview:layout,warnings:job.warnings??[],archive:archives.get(job.id)?.info??null};
   };
   const visible=(saved,session)=>(saved.refs.source.mode==='demo'||saved.refs.source.mode==='csv'&&session.csvSource?.fingerprint===saved.refs.source.fingerprint||saved.refs.source.mode==='airtable'&&session.sourceAuth?.baseId===saved.refs.source.baseId)&&
@@ -69,12 +70,14 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
     const baseHeaders={ 'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
       'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'" };
     for(const [key,value] of Object.entries(baseHeaders))res.setHeader(key,value);
+    let locale=normalizeLanguage(req.headers['x-photoport-language']);
     const send=(status,data,type='application/json; charset=utf-8')=>{res.writeHead(status,{'Content-Type':type});res.end(type.startsWith('application/json')?JSON.stringify(data):data);};
     try {
       if(internalSecret&&req.headers['x-photoport-internal']!==internalSecret)throw new AppError('internal','页面不存在。',404);
       const allowedHosts=new Set([new URL(origin).host,`localhost:${server.address().port}`,`127.0.0.1:${server.address().port}`]);
       if(!allowedHosts.has(req.headers.host))throw new AppError('host','本机版只接受本机访问。',403);
-      const url=new URL(req.url,origin), path=url.pathname;
+      const url=new URL(req.url,origin), path=url.pathname;locale=normalizeLanguage(url.searchParams.get("lang")||req.headers["x-photoport-language"]);
+      if(req.method==="GET"&&path==="/names.js")return send(200,(await readFile(join(ROOT,"lib/names.mjs"),"utf8")).replace("../public/i18n.js","./i18n.js"),"text/javascript; charset=utf-8");
       const cookieName=`photoport_${server.address().port}`,cookiePrefix=cookieName+'=';
       const cookie=String(req.headers.cookie??'').split(';').map(x=>x.trim()).find(x=>x.startsWith(cookiePrefix))?.slice(cookiePrefix.length);
       let session=sessions.get(cookie);
@@ -116,7 +119,7 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
       }
       if(req.method==='POST'&&path==='/api/connect-csv'){
         if(typeof body.text!=='string'||Buffer.byteLength(body.text)>32*1024*1024)throw new AppError('csv','CSV最大32MB。');
-        const source=csvSourceFactory(body.text);session.csvSource=source;session.csvText=durable?body.text:undefined;
+        const source=csvSourceFactory(body.text);if(source.table?.name==='导入的CSV')source.table.name=translate('导入的CSV',locale);session.csvSource=source;session.csvText=durable?body.text:undefined;
         const refreshedJobs=[];
         for(const job of session.jobs.values())if(job.refs?.source.mode==='csv'&&job.refs.source.fingerprint===source.fingerprint&&!job.busy&&!job.archiving){job.source=source;job.previews?.clear();refreshedJobs.push(job.id);}
         return send(200,{tables:[source.table],tableId:source.table.id,refreshedJobs});
@@ -128,13 +131,13 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
         return send(200,{connected:true,bucket:body.bucket,publicBase:session.r2.publicBase});
       }
       if(req.method==='POST'&&path==='/api/restore'){
-        if(durable){const job=await hydrate(body.id,session);return send(202,describe(job));}
+        if(durable){const job=await hydrate(body.id,session);return send(202,describe(job,locale));}
         if(Array.from(session.jobs.values()).some(j=>j.busy))throw new AppError('busy','请先等待当前任务完成。',409);
         const saved=await checkpoints.read(body.id);
         if(!visible(saved,session))throw new AppError('restore_access','请重新连接原来的Airtable库与R2仓库。',403);
         if(saved.refs.destination.mode!=='local')throw new AppError('local_only','请使用本机导出任务。',400);
         if(saved.refs.source.mode==='airtable'&&saved.refs.destination.mode==='r2'&&body.confirmPublic!==true)throw new AppError('public_confirm','请确认这批图片允许按所填的公开地址展示。');
-        if(session.jobs.has(body.id))return send(200,describe(session.jobs.get(body.id)));
+        if(session.jobs.has(body.id))return send(200,describe(session.jobs.get(body.id),locale));
         if(session.jobs.size>=5)throw new AppError('jobs_limit','请先清除连接后再恢复任务。');
         const refs=saved.refs;let source,records,fields,labelField,destination;
         if(refs.source.mode==='demo'){
@@ -159,9 +162,10 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
         if(session.jobs.size>=5)throw new AppError('jobs_limit','每个会话保留最多5个任务，先清除连接后再开始。');
         let source,records,fields,labelField,table,warnings=[];
         if(path==='/api/demo'){
-          const count=Number(body.count??30);if(!Number.isInteger(count)||count<1||count>LIMITS.files)throw new AppError('count','示例照片数量应为1—5000。');
-          source=await demoSource({count,edgeCases:body.edgeCases!==false,visual:body.visual===true});records=source.records;fields=['Photos','Details'];labelField='Name';
+          const count=Number(body.count??30);if(!Number.isInteger(count)||count<1||count>LIMITS.files)throw new AppError('count','示例照片数量应为1—15000。');
+          source=await demoSource({count,locale,edgeCases:body.edgeCases!==false,visual:body.visual===true});records=source.records;fields=['Photos','Details'];labelField='Name';
           table={id:'tblDemo',name:'商品整理示例',primaryFieldId:'Name',fields:[{id:'Name',name:'商品名称',type:'singleLineText'},{id:'SKU',name:'商品货号',type:'singleLineText'},{id:'Customer',name:'客户',type:'singleLineText'},{id:'Owner',name:'负责人',type:'singleCollaborator'},{id:'Price',name:'价格',type:'number'},{id:'Photos',name:'商品照片',type:'multipleAttachments'},{id:'Details',name:'细节照片',type:'multipleAttachments'}]};
+          table.name=translate(table.name,locale);table.fields=table.fields.map(f=>({...f,name:translate(f.name,locale)}));
         }else{
           if(!session.sourceAuth&&!session.csvSource)throw new AppError('source','请先连接Airtable表格或导入CSV。');
           table=(session.csvSource?[session.csvSource.table]:session.sourceAuth.tables).find(t=>t.id===body.tableId);
@@ -187,10 +191,10 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
         }
         const job=new TransferJob(plan,source,destination,{concurrency});
         job.recordData=snapshotRecords(records,table);job.warnings=warnings;job.organization={};
-        job.refs={source:path==='/api/demo'?{mode:'demo',count:Number(body.count??30),edgeCases:body.edgeCases!==false,visual:body.visual===true}:source.mode==='csv'?{mode:'csv',fingerprint:source.fingerprint,fields,labelField}:{mode:'airtable',baseId:session.sourceAuth.baseId,tableId:body.tableId,viewId:body.viewId||null,fields,labelField},
+        job.refs={source:path==='/api/demo'?{mode:'demo',locale,count:Number(body.count??30),edgeCases:body.edgeCases!==false,visual:body.visual===true}:source.mode==='csv'?{mode:'csv',fingerprint:source.fingerprint,fields,labelField}:{mode:'airtable',baseId:session.sourceAuth.baseId,tableId:body.tableId,viewId:body.viewId||null,fields,labelField},
           destination:body.destination==='r2'?{mode:'r2',accountId:session.r2.accountId,bucket:session.r2.bucket}:{mode:'local'}};
         if(durable&&source.mode==='csv')job.refs.source.csvText=session.csvText;
-        track(job);await checkpoints.save(job);session.jobs.set(job.id,job);return send(201,describe(job));
+        track(job);await checkpoints.save(job);session.jobs.set(job.id,job);return send(201,describe(job,locale));
       }
       if(req.method==='POST'&&path==='/api/import-result'){
         if(session.jobs.size>=5)throw new AppError('jobs_limit','请先清除连接再打开其他结果。');
@@ -208,7 +212,7 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
           return {id:this.id,rows:this.rows,recordData:this.recordData,organization:this.organization,layoutVersion:this.layoutVersion,busy:false,imported:true,sourceMode:'saved',destinationMode:'public',state:count('failed')||count('rejected')?'completed_with_errors':'completed',createdAt:this.createdAt,total:this.rows.length,records:this.recordData?.records.length??new Set(this.rows.map(r=>r.recordId)).size,success:count('success'),failed:count('failed'),pending:count('pending'),rejected:count('rejected'),copying:0,copiedBytes:this.rows.reduce((n,r)=>n+(r.status==='success'?r.bytes:0),0),attempts:0};
         }};
         try{job.organization=normalizeOrganization(job.organization,recordData?.fields??[]);}catch(e){throw new AppError('organization',e.message);}
-        session.jobs.set(id,job);return send(201,describe(job));
+        session.jobs.set(id,job);return send(201,describe(job,locale));
       }
       const match=path.match(/^\/api\/jobs\/([a-f0-9-]{36})(?:\/(sample|all|retry|pause|verify|source-off|export|archive|catalog|organize|preview))?$/);
       if(match){
@@ -216,7 +220,7 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
         if(durable&&Date.parse(job.createdAt)+7*86400000<=Date.now())throw new AppError('expired','这份临时结果已过期，请重新导出。',410);
         const action=match[2];
         if(req.method==='GET'&&action==='preview')return send(200,await preview(job,url.searchParams.get('file')),'image/webp');
-        if(req.method==='GET'&&!action)return send(200,describe(job));
+        if(req.method==='GET'&&!action)return send(200,describe(job,locale));
         if(req.method==='POST'&&action==='organize'){
           if(job.busy||job.archiving)throw new AppError('busy','请先暂停处理或等待打包完成，再调整整理方式。',409);
           let normalized;try{normalized=normalizeOrganization(body.organization,job.recordData?.fields??[]);}catch(e){throw new AppError('organization',e.message);}
@@ -231,11 +235,11 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
           job.organization=normalized;
           if(!job.imported)job.state=job.rows.some(r=>r.status==='pending')?'ready':job.rows.some(r=>['failed','rejected'].includes(r.status))?'completed_with_errors':'completed';
           job.layoutVersion=(job.layoutVersion??0)+1;archives.delete(job.id);job.cloudArchive=null;if(!job.imported)await checkpoints.save(job);
-          return send(200,describe(job));
+          return send(200,describe(job,locale));
         }
         if(req.method==='GET'&&action==='catalog'){
           const archive=archives.get(job.id);
-          if(archive?.info.state!=='ready')throw new AppError('archive_pending','请先准备照片包，Excel目录会一并生成。',409);
+          if(archive?.info.state!=='ready'||(archive.info.locale??'zh-CN')!==locale)throw new AppError('archive_pending','请先准备照片包，Excel目录会一并生成。',409);
           res.setHeader('Content-Disposition',`attachment; filename="photoport-catalog-${job.id}.xlsx"`);
           if(archive.result.remote){res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');const stream=await job.destination.stream(archive.result.catalogKey);stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());return stream.pipe(res);}
           return send(200,await readFile(archive.result.catalogPath),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -243,15 +247,15 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
         if(action==='archive'){
           const prior=archives.get(job.id);
           if(req.method==='POST'){
-            if(prior&&['preparing','packing','ready'].includes(prior.info.state))return send(202,describe(job));
+            if(prior&&(['preparing','packing'].includes(prior.info.state)||prior.info.state==='ready'&&(prior.info.locale??'zh-CN')===locale))return send(202,describe(job,locale));
             if(job.busy||job.rows.some(r=>r.status==='copying')||(!body.allowPartial&&job.rows.some(r=>['pending','failed'].includes(r.status))))throw new AppError('archive_unfinished','请先完成处理，或暂停后选择只下载已成功的文件。',409);
-            const task={info:{state:'preparing',prepared:0,total:job.rows.filter(r=>r.status==='success').length}};archives.set(job.id,task);job.archiving=true;
-            buildArchive(job.summary(),{root:join(runtime,'archives'),destination:job.destination,allowPartial:body.allowPartial===true,read:row=>job.imported?readPublic(row.url):job.destination.read(objectKey(job.id,row)),onProgress:info=>{task.info=info;}})
+            const task={info:{locale,state:'preparing',prepared:0,total:job.rows.filter(r=>r.status==='success').length}};archives.set(job.id,task);job.archiving=true;
+            buildArchive(job.summary(),{locale,root:join(runtime,'archives'),destination:job.destination,allowPartial:body.allowPartial===true,read:row=>job.imported?readPublic(row.url):job.destination.read(objectKey(job.id,row)),onProgress:info=>{task.info={...info,locale};}})
               .then(async result=>{if(result.remote){job.cloudArchive=result;await checkpoints.save(job);}task.result=result;task.info=result.info;}).catch(()=>{task.info={...task.info,state:'failed',error:'照片包准备失败，没有提供不完整下载。可重试；已核对的文件保留。'};}).finally(()=>{job.archiving=false;});
-            return send(202,describe(job));
+            return send(202,describe(job,locale));
           }
           if(['GET','HEAD'].includes(req.method)){
-            if(prior?.info.state!=='ready'||!prior.result)throw new AppError('archive_pending','照片包还没准备好，请稍候。',409);
+            if(prior?.info.state!=='ready'||!prior.result||(prior.info.locale??'zh-CN')!==locale)throw new AppError('archive_pending','照片包还没准备好，请稍候。',409);
             const path=prior.result.path,total=prior.result.remote?prior.result.info.zipBytes:(await stat(path)).size;let start=0,end=total-1;
             if(req.headers.range){const range=/^bytes=(\d+)-(\d*)$/.exec(req.headers.range);if(!range)throw new AppError('range','下载范围不正确。',416);start=Number(range[1]);end=range[2]?Math.min(Number(range[2]),end):end;if(start>end||start>=total)throw new AppError('range','下载范围超出文件。',416);}
             res.writeHead(req.headers.range?206:200,{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="photoport-${job.id}.zip"`,'Content-Length':end-start+1,'Accept-Ranges':'bytes',...(req.headers.range?{'Content-Range':`bytes ${start}-${end}/${total}`}:{})});
@@ -261,10 +265,10 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
         }
         if(req.method==='GET'&&action==='export'){
           const data=job.summary();res.setHeader('Content-Disposition',`attachment; filename="photoport-${job.id}.${url.searchParams.get('format')==='json'?'json':'csv'}"`);
-          if(url.searchParams.get('format')==='records')return send(200,recordsCSV(job.recordData,archiveRows(job.rows,job.organization,job.recordData)),'text/csv; charset=utf-8');
-          data.rows=archiveRows(data.rows,job.organization,job.recordData);
+          if(url.searchParams.get('format')==='records')return send(200,recordsCSV(job.recordData,archiveRows(job.rows,job.organization,job.recordData,locale),locale),'text/csv; charset=utf-8');
+          data.rows=archiveRows(data.rows,job.organization,job.recordData,locale);
           if(url.searchParams.get('format')==='json')return send(200,data);
-          return send(200,csv(job.rows,job.organization,job.recordData),'text/csv; charset=utf-8');
+          return send(200,csv(job.rows,job.organization,job.recordData,locale),'text/csv; charset=utf-8');
         }
         if(job.imported&&req.method==='POST')throw new AppError('saved_result','已完成结果可重新打包；若要重新复制，请连接原表。');
         if(req.method==='POST'&&['sample','all','retry'].includes(action)){
@@ -291,7 +295,7 @@ export async function createServer({runtime=join(ROOT,'.runtime'),port=4180,conc
     }catch(e){
       if(res.headersSent){res.end();return;}
       // Do not log request bodies, tokens, signed source URLs or provider error payloads.
-      send(e instanceof AppError?e.status:e.code==='ENOENT'?404:500,{error:e instanceof AppError?e.message:e.code==='ENOENT'?'图片不存在。':'操作失败，请检查网络与输入后重试。',code:e instanceof AppError?e.code:'internal'});
+      send(e instanceof AppError?e.status:e.code==='ENOENT'?404:500,{error:translate(e instanceof AppError?e.message:e.code==='ENOENT'?'图片不存在。':'操作失败，请检查网络与输入后重试。',locale),code:e instanceof AppError?e.code:'internal'});
     }
   });
   server.on('close',()=>{clearInterval(timer);clearInterval(heartbeat);for(const s of sessions.values())cleanup(s);});

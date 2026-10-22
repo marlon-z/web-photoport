@@ -4,7 +4,11 @@
 
 [中文安装说明](README.zh-CN.md) · [Product & hosted-version interest list](https://photoport-local.pages.dev/) · [Report a problem](https://github.com/marlon-z/web-photoport/issues)
 
-Free, open-source software that runs on **your own computer**. No PhotoPort account, payment, R2 bucket or database is required. The current tool interface is in **Simplified Chinese**; these installation instructions are in English. The hosted edition is **not available yet**.
+Free, open-source software that runs on **your own computer**. No PhotoPort account, payment, R2 bucket or database is required. The interface and export documents support **English and Simplified Chinese**. Switch language at the top right; your choice is remembered on this browser. The hosted edition is **not available yet**.
+
+## Languages
+
+The first visit follows your browser language (Chinese for a Chinese browser, otherwise English). Use the **中文 / English** selector at any time without losing the active task, record selection or filters. ZIP support filenames, Excel sheets and headings, the offline gallery and human-readable CSV messages follow your selection. Original filenames, source field names, record IDs and data values are never translated. CSV machine column names and JSON keys remain stable. Existing archives are rebuilt in the chosen language using verified cached files.
 
 ## What you receive
 
@@ -41,7 +45,7 @@ npm start
 
 ## Try it without an account
 
-Click **先试商品整理示例** (try the product example), choose **按客户 → 货号** (customer → SKU), then **下载全部照片** (download all). PhotoPort generates a real downloadable sample using included synthetic artwork. You do not need an Airtable account for this demonstration.
+Click **Try a product sample →**, choose **By customer**, then **Download organized ZIP ↓**. PhotoPort generates a real downloadable sample using included synthetic artwork. You do not need an Airtable account for this demonstration.
 
 ## Use your own Airtable data
 

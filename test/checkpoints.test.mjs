@@ -33,7 +33,7 @@ test('8张同时复制时杀死进程，重新连接能核对副本并续搬，�
   // progress before killing, rather than asserting memory progress was flushed.
   const deadline=Date.now()+15000;
   while(Date.now()<deadline){before=(await call(`/api/jobs/${created.id}`)).data;const durable=await store.read(created.id);if(before.success>=6&&durable.job.success>=6)break;await new Promise(r=>setTimeout(r,10));}
-  assert.ok(before.busy&&before.success>=6&&before.success<200);
+  assert.ok(before.busy&&before.success>=6&&before.success<200,JSON.stringify({state:before.state,busy:before.busy,success:before.success,pending:before.pending,failed:before.failed,saveError:before.saveError,firstFailure:before.rows?.find(r=>r.status==='failed')?.error}));
   const exit=once(child,'exit');child.kill('SIGKILL');await exit;
   const saved=await store.read(created.id);
   assert.ok(saved.job.success>=6&&saved.job.success<200);

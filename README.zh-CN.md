@@ -67,5 +67,7 @@ npm start
 
 开发者测试需要 Node；部分 ZIP 独立核验测试额外需要 Python 3。运行 `npm test`、`npm run test:site`、`npm run audit:release`。
 
+维护者可以查看[上线后的中文操作说明](docs/OPERATIONS.zh-CN.md)，了解流量、私有报名数据、免费额度和暂停报名的方法。
+
 代码采用 [MIT 许可证](LICENSE)，允许使用、修改和分发。第三方依赖保留自己的许可。示例商品图由 AI 生成，不是客户照片。PhotoPort 与 Airtable 没有隶属关系。
 

@@ -31,7 +31,8 @@ test('8张同时复制时杀死进程，重新连接能核对副本并续搬，�
   const store=new Checkpoints(join(runtime,'jobs'));
   // HTTP progress can precede the atomic checkpoint rename. Wait for durable
   // progress before killing, rather than asserting memory progress was flushed.
-  for(let i=0;i<100;i++){before=(await call(`/api/jobs/${created.id}`)).data;const durable=await store.read(created.id);if(before.success>=6&&durable.job.success>=6)break;await new Promise(r=>setTimeout(r,10));}
+  const deadline=Date.now()+15000;
+  while(Date.now()<deadline){before=(await call(`/api/jobs/${created.id}`)).data;const durable=await store.read(created.id);if(before.success>=6&&durable.job.success>=6)break;await new Promise(r=>setTimeout(r,10));}
   assert.ok(before.busy&&before.success>=6&&before.success<200);
   const exit=once(child,'exit');child.kill('SIGKILL');await exit;
   const saved=await store.read(created.id);

@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp,readFile,writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+const execFileAsync=promisify(execFile);
 import { archiveRows,safeName } from '../lib/names.mjs';
 import { buildArchive,validateExport } from '../lib/archive.mjs';
 import { digest } from '../lib/core.mjs';
@@ -23,7 +25,7 @@ test('真实ZIP可独立解压：完整照片、原名对应、离线目录、�
   const summary={id:'12345678-1234-1234-1234-123456789abc',busy:false,rows:[base,{...base,attachmentId:'att2'},{...base,recordId:'recB',attachmentId:'att3'}]};let reads=0;
   const result=await buildArchive(summary,{root,read:async()=>{reads++;return data;}});assert.equal(reads,1);assert.equal(result.info.total,3);
   const b=await readFile(result.path);assert.ok(b.includes(Buffer.from([0x50,0x4b,0x06,0x06])));
-  const output=JSON.parse(execFileSync('python',['-X','utf8','-c',`import zipfile,json,csv,io,hashlib,sys
+  const output=JSON.parse((await execFileAsync('python',['-X','utf8','-c',`import zipfile,json,csv,io,hashlib,sys
 with zipfile.ZipFile(sys.argv[1]) as z:
  m=json.loads(z.read('manifest.json')); rows=m['rows']; files=[n for n in z.namelist() if n.startswith('photos/')]
  assert len(files)==3
@@ -38,7 +40,7 @@ with zipfile.ZipFile(sys.argv[1]) as z:
  c=list(csv.DictReader(io.StringIO(z.read('照片清单.csv').decode('utf-8-sig'))))
  assert [r['original_filename'] for r in c]==['正面.png']*3
  assert len(set(r['download_path'].lower() for r in c))==3
- print(json.dumps({'files':len(files),'crc_ok':z.testzip() is None}))`,result.path],{encoding:'utf8'}));assert.deepEqual(output,{files:3,crc_ok:true});
+ print(json.dumps({'files':len(files),'crc_ok':z.testzip() is None}))`,result.path],{encoding:'utf8'})).stdout);assert.deepEqual(output,{files:3,crc_ok:true});
   await assert.rejects(buildArchive({...summary,rows:[{...base,status:'failed'}]},{root,read:async()=>data}),/重试/);
 });
 test('照片内容不一致时不提供成功包；导入清单不接受缺少指纹、重复身份和非HTTPS',async()=>{

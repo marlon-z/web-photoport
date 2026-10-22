@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {mkdtemp,readFile,stat} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
-import {execFileSync} from 'node:child_process';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+const execFileAsync=promisify(execFile);
 import {archiveRows,normalizeOrganization,safeFilename} from '../lib/names.mjs';
 import {snapshotRecords,cellText} from '../lib/metadata.mjs';
 import {CSVSource,parseCSV} from '../lib/csv-source.mjs';
@@ -81,7 +83,7 @@ test('实际CSV到本机资料包：选择记录、货号/用户合并、PDF和T
   for(let i=0;i<600;i++){state=await(await request(path)).json();if(['ready','failed'].includes(state.archive?.state))break;await new Promise(r=>setTimeout(r,10));}
   assert.equal(state.archive.state,'ready');assert.equal(state.archive.catalog.embeddedPreviews,2);
   const zip=join(runtime,'archives',job.id,String(state.layoutVersion),'photos.zip');
-  const result=JSON.parse(execFileSync('python',['-X','utf8','-c',`import zipfile,json,csv,io,sys,hashlib,xml.etree.ElementTree as E
+  const result=JSON.parse((await execFileAsync('python',['-X','utf8','-c',`import zipfile,json,csv,io,sys,hashlib,xml.etree.ElementTree as E
 with zipfile.ZipFile(sys.argv[1]) as z:
  m=json.loads(z.read('manifest.json')); rows=m['rows']; assert len(rows)==4
  assert all(r['downloadPath'].startswith('photos/张三/001/') for r in rows)
@@ -93,7 +95,7 @@ with zipfile.ZipFile(sys.argv[1]) as z:
  with zipfile.ZipFile(io.BytesIO(z.read('照片目录.xlsx'))) as x:
   ns={'s':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
   assert len(E.fromstring(x.read('xl/workbook.xml')).find('s:sheets',ns))==2
- print(json.dumps({'files':4,'records':3,'two_sheets':True,'hashes_ok':True}))`,zip],{encoding:'utf8'}));assert.equal(result.hashes_ok,true);
+ print(json.dumps({'files':4,'records':3,'two_sheets':True,'hashes_ok':True}))`,zip],{encoding:'utf8'})).stdout);assert.equal(result.hashes_ok,true);
   // Reorganizing only repacks; no source downloads or duplicate transfers.
   const attempts=state.attempts;await request(path+'/organize',{organization:{groupBy:['csv1'],renameField:'csv1',separateFields:false}});state=await(await request(path)).json();assert.equal(state.archive,null);assert.equal(state.attempts,attempts);assert.equal(state.success,4);
   const saved=JSON.parse(await readFile(join(runtime,'jobs',job.id+'.json'),'utf8'));assert.ok(!JSON.stringify(saved).includes('airtableusercontent.com'));assert.equal(saved.job.organization.renameField,'csv1');

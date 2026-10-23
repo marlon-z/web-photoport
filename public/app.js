@@ -1,6 +1,8 @@
+import {initFileControls,updateFilePickers} from '/file-controls.js';
 import {layoutOverview} from '/names.js';
 import {tr,msg,getLanguage,localizedURL,initLanguage} from '/locale.js';
 initLanguage();
+initFileControls();
 const account=null;
 const connectAccountUI=async()=>{};
 const activeKey='photoport.active'+(account?'.'+account.user.id:'');
@@ -135,7 +137,7 @@ $('folder-search').oninput=renderGallery;
 $('gallery-more').onclick=()=>{galleryLimit+=24;renderGallery();};
 $('gallery-all').onclick=guard(async()=>{selectedIds=new Set(allRecords.map(r=>r.id));await organize(true);recordList();});
 $('review-download').onclick=()=>{setStep(3);$('download-all').click();};
-$('refresh-csv').onchange=guard(async()=>{const file=$('refresh-csv').files[0];if(!file)return;if(file.size>32*1024*1024)throw new Error(tr('CSV 超过 32MB。'));const data=await api('/api/connect-csv',{text:await file.text()});if(!data.refreshedJobs.includes(job.id))throw new Error(tr('这份 CSV 的列或记录与原任务不同。请导出相同视图、保持原行顺序，再更新链接。'));$('refresh-csv').value='';galleryKey='';toast(tr('图片链接已更新。点击“重试失败文件”即可接着下载，成功文件保留。'));render();});
+$('refresh-csv').onchange=guard(async()=>{const file=$('refresh-csv').files[0];if(!file)return;if(file.size>32*1024*1024)throw new Error(tr('CSV 超过 32MB。'));const data=await api('/api/connect-csv',{text:await file.text()});if(!data.refreshedJobs.includes(job.id))throw new Error(tr('这份 CSV 的列或记录与原任务不同。请导出相同视图、保持原行顺序，再更新链接。'));$('refresh-csv').value='';updateFilePickers();galleryKey='';toast(tr('图片链接已更新。点击“重试失败文件”即可接着下载，成功文件保留。'));render();});
 const drop=document.querySelector('.file-drop');drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragging');});drop.addEventListener('dragleave',()=>drop.classList.remove('dragging'));drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('dragging');if(e.dataTransfer.files.length===1){$('source-csv').files=e.dataTransfer.files;$('source-csv').dispatchEvent(new Event('change'));}else toast(tr('请一次导入一份 CSV。'),true);});
 
 guard(async()=>{await connectAccountUI({account,api,guard,setTables,toast,startSource:()=>{demo=false;csvMode=false;$('view').value='';$('view-label').classList.remove('hidden');}});settings=await api('/api/status');csvMode=!!settings.csvConnected;if(settings.sourceConnected||csvMode)setTables(settings.tables);if(settings.r2)$('r2-status').textContent=tr('已连接 ')+settings.r2.bucket;await saved();let active;try{active=JSON.parse(sessionStorage.getItem(activeKey));}catch{}const params=new URLSearchParams(location.search);if(params.has('demo')){await $('demo').onclick();history.replaceState(null,'','/app');return;}if(params.has('new')){history.replaceState(null,'','/app');return;}if(active?.id){try{job=await api(`/api/jobs/${active.id}`);setupJob();setStep(Number(active.step)||2,false);if(job.busy||['preparing','packing'].includes(job.archive?.state))await poll();}catch{sessionStorage.removeItem(activeKey);toast(tr('服务已重新启动，可在“继续上次任务”中恢复。'));}}})();

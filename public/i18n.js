@@ -19,6 +19,8 @@ for (const [source, target] of Object.entries(english)) {
     patterns.push({source, target, zh:compile(source), en:compile(target)});
   }
 }
+export const isMessage = text => Object.hasOwn(english,text) || reverse.has(text);
+export const preferredLanguage = saved => ['en','zh-CN'].includes(saved) ? saved : 'en';
 const interpolate = (text, values) => text.replace(/\{(\d+)\}/g, (match, index) => index in values ? String(values[index]) : match);
 
 // Only pass application-owned text here. Never translate table values, field

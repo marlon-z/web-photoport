@@ -7,4 +7,7 @@
 /remove*
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-store
+/zh/remove*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
 

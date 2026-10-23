@@ -8,7 +8,7 @@ Free, open-source software that runs on **your own computer**. No PhotoPort acco
 
 ## Languages
 
-The first visit follows your browser language (Chinese for a Chinese browser, otherwise English). Use the **中文 / English** selector at any time without losing the active task, record selection or filters. ZIP support filenames, Excel sheets and headings, the offline gallery and human-readable CSV messages follow your selection. Original filenames, source field names, record IDs and data values are never translated. CSV machine column names and JSON keys remain stable. Existing archives are rebuilt in the chosen language using verified cached files.
+English is the default, including in a Chinese-language browser. Only an explicit choice in the language selector is remembered. Use the **中文 / English** selector at any time without losing the active task, record selection or filters. ZIP support filenames, Excel sheets and headings, the offline gallery and human-readable CSV messages follow your selection. Original filenames, source field names, record IDs and data values are never translated. CSV machine column names and JSON keys remain stable. Existing archives are rebuilt in the chosen language using verified cached files.
 
 ## What you receive
 
@@ -63,7 +63,7 @@ Click **Try a product sample →**, choose **By customer**, then **Download orga
 - Node 22+; tested on Windows, with CI configured for Windows, macOS and Linux.
 - Maximum **20 MiB per file**, **10 GiB per batch**, **15,000 attachments**. This is not an unlimited exporter.
 - Reserve at least **3× the source size** in free disk space for originals, packaging and the final download. A full 10 GiB batch may need more than 30 GiB free.
-- After a restart, reconnect the same read-only source or import the same CSV with refreshed URLs, then use **继续上次任务**. Previously verified files can be reused. Preserve CSV column and row order.
+- After a restart, reconnect the same read-only source or import the same CSV with refreshed URLs, then use **Resume a task or open saved results**. Previously verified files can be reused. Preserve CSV column and row order.
 - An expired CSV cannot be refreshed automatically. Missing records, changed source data, quotas and permissions may still require intervention.
 - JSON/CSV exports preserve the selected data available to PhotoPort, not every feature of an Airtable base. Attachments are downloaded only when permitted by the source service.
 

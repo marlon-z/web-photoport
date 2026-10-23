@@ -1,5 +1,8 @@
 // Chinese source messages are stable keys. Keep numbered placeholders intact.
 export default {
+  "选择 CSV 文件": "Choose CSV file",
+  "选择 JSON 文件": "Choose JSON file",
+  "未选择文件": "No file selected",
   "只用记录编号": "Use record ID only",
   "附件列": "Attachment fields",
   "按“{0}”命名并加序号": "Use “{0}” with a sequence number",

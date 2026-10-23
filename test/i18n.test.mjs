@@ -7,7 +7,8 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import ExcelJS from 'exceljs';
 import english from '../public/messages.en.js';
-import {translate,templateKey,normalizeLanguage} from '../public/i18n.js';
+import {translate,templateKey,normalizeLanguage,preferredLanguage} from '../public/i18n.js';
+import {validationMessage} from '../public/form-validation.js';
 import {archiveRows,layoutOverview} from '../lib/names.mjs';
 import {groupFiles} from '../public/gallery.js';
 import {buildArchive} from '../lib/archive.mjs';
@@ -27,7 +28,8 @@ test('translations keep every placeholder, cover static UI and support dynamic e
     const html=await readFile(new URL('../public/'+file,import.meta.url),'utf8');
     const texts=[...html.matchAll(/>([^<>]+)</g)].map(m=>m[1].trim());
     const attrs=[...html.matchAll(/(?:placeholder|aria-label|title|content)="([^"]*)"/g)].map(m=>m[1]);
-    for(const source of [...texts,...attrs].filter(s=>/[\u3400-\u9fff]/u.test(s)&&!['中文','语言'].includes(s)))assert.ok(Object.hasOwn(english,source),source);
+    assert.match(html,/<html lang="en">/);
+    for(const source of [...texts,...attrs].filter(s=>s!=='中文'))assert.doesNotMatch(source,/[\u3400-\u9fff]/u,source);
   }
   assert.equal(normalizeLanguage('en-GB'),'en');
   assert.equal(normalizeLanguage('zh-TW'),'zh-CN');
@@ -35,6 +37,26 @@ test('translations keep every placeholder, cover static UI and support dynamic e
   assert.equal(translate('客户表：关联表不可读，保留原记录编号。','en'),'客户表: linked table unavailable; original record IDs kept.');
   assert.equal(translate(templateKey(['共','个附件。']),'en',[18]),'18 attachments in total.');
   assert.equal(translate('Your files are ready','zh-CN'),'资料已准备好');
+});
+
+test('English is the default; only an explicit supported preference changes it',()=>{
+  for(const saved of [null,undefined,'','fr','zh','en-US','null'])assert.equal(preferredLanguage(saved),'en');
+  assert.equal(preferredLanguage('en'),'en');
+  assert.equal(preferredLanguage('zh-CN'),'zh-CN');
+});
+
+test('validation messages use the product language, including email, checkbox and numeric errors',()=>{
+  for(const [type,flag,en,zh] of [
+    ['text','valueMissing','Please fill in this field.','请填写这一项。'],
+    ['checkbox','valueMissing','Please check this box to continue.','请勾选这一项后继续。'],
+    ['email','typeMismatch','Enter a valid email address.','请输入有效的邮箱地址。'],
+    ['url','typeMismatch','Enter a complete URL, such as https://airtable.com/app…','请输入完整网址，例如 https://airtable.com/app…'],
+    ['number','rangeOverflow','Enter a number within the allowed range.','请输入允许范围内的数字。']
+  ]){
+    const field={type,validity:{valid:false,[flag]:true}};
+    assert.equal(validationMessage(field),en);assert.equal(validationMessage(field,'zh-CN'),zh);
+  }
+  assert.equal(validationMessage({validity:{valid:true}}),'');
 });
 
 const bytes=fixturePNG(91);
@@ -95,7 +117,7 @@ test('HTTP language changes keep task identity, localize errors and never serve 
   const request=(path,body,lang='en')=>fetch(app.origin+path+(path.includes('?')?'&':'?')+'lang='+lang,{headers:{cookie,'Content-Type':'application/json','X-PhotoPort':'1'},...(body===undefined?{}:{method:'POST',body:JSON.stringify(body)})});
   assert.equal((await(await request('/api/scan',{})).json()).error,'Connect to Airtable or import a CSV first.');
   assert.equal((await(await request('/api/scan',{},'zh-CN')).json()).error,'请先连接Airtable表格或导入CSV。');
-  for(const path of ['/locale.js','/i18n.js','/messages.en.js','/home.js','/names.js'])assert.equal((await request(path)).status,200);
+  for(const path of ['/locale.js','/i18n.js','/messages.en.js','/home.js','/names.js','/file-controls.js','/form-validation.js'])assert.equal((await request(path)).status,200);
   let state=await(await request('/api/demo',{count:3,edgeCases:false,visual:true})).json();
   const path='/api/jobs/'+state.id,id=state.id;
   assert.equal(state.recordData.table.name,'Product sample');

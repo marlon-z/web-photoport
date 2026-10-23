@@ -1,8 +1,8 @@
-import {normalizeLanguage, translate, templateKey} from './i18n.js';
+import {normalizeLanguage, translate, templateKey, isMessage, preferredLanguage} from './i18n.js';
 
 const storageKey = 'photoport.language';
-let language = /^zh(?:-|$)/i.test(navigator.language) ? 'zh-CN' : 'en';
-try { const saved = localStorage.getItem(storageKey); if (saved) language = normalizeLanguage(saved); } catch {}
+let language = 'en';
+try { language = preferredLanguage(localStorage.getItem(storageKey)); } catch {}
 export const getLanguage = () => language;
 export const tr = text => translate(text, language);
 export const msg = (parts, ...values) => translate(templateKey(parts), language, values);
@@ -15,14 +15,14 @@ export function initLanguage() {
   const walker = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const node = walker.currentNode, parent = node.parentElement;
-    if (!parent || parent.closest('script,style,[data-no-i18n]') || !/[\u3400-\u9fff]/u.test(node.data)) continue;
+    if (!parent || parent.closest('script,style,[data-no-i18n]') || !isMessage(node.data.trim())) continue;
     const [,left,source,right] = node.data.match(/^(\s*)([\s\S]*?)(\s*)$/);
     tracked.push(() => { if (node.isConnected) node.data = left + tr(source) + right; });
   }
   for (const element of document.querySelectorAll('[placeholder],[aria-label],[title],meta[name="description"]')) {
     for (const name of ['placeholder','aria-label','title','content']) {
       const source = element.getAttribute(name);
-      if (source && /[\u3400-\u9fff]/u.test(source)) tracked.push(() => { if (element.isConnected) element.setAttribute(name,tr(source)); });
+      if (source && isMessage(source)) tracked.push(() => { if (element.isConnected) element.setAttribute(name,tr(source)); });
     }
   }
   const apply = () => {

@@ -1,0 +1,54 @@
+name: First export feedback
+description: Tell us whether PhotoPort gave you the files you needed, even if installation failed.
+title: "[First export] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is a public page. Please describe your workflow without uploading real CSVs, photos, customer names, attachment URLs, tokens or log files. Approximate counts are enough. You can also reply where you first found PhotoPort instead of using GitHub.
+  - type: dropdown
+    id: result
+    attributes:
+      label: How far did you get?
+      options:
+        - Looked at the sample only
+        - Could not install or start the app
+        - Started the app but could not import my data
+        - Exported some files but could not get everything I needed
+        - Exported my own files and got the result I needed
+    validations:
+      required: true
+  - type: textarea
+    id: task
+    attributes:
+      label: What did you need to hand over or keep?
+      placeholder: "For example: about 30 product photos, one folder per SKU, with a picture catalog. How would you normally do this?"
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What worked, or where did you get stuck?
+      placeholder: "Did the files, folders and Excel catalog match what you needed? Roughly how long did setup and exporting take?"
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: When would you need this again? (optional)
+      options:
+        - Not sure yet
+        - This was a one-time task
+        - A few times a year
+        - Monthly or more often
+        - I would not use it again
+  - type: input
+    id: environment
+    attributes:
+      label: App version and operating system (optional)
+      placeholder: "PhotoPort 0.2.1, Windows / macOS / Linux; Node version if known"
+  - type: input
+    id: source
+    attributes:
+      label: Where did you find PhotoPort? (optional)
+      placeholder: "Reddit, TableForums, GitHub, search, or somewhere else"

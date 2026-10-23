@@ -47,11 +47,13 @@ npm start
 
 Click **Try a product sample →**, choose **By customer**, then **Download organized ZIP ↓**. PhotoPort generates a real downloadable sample using included synthetic artwork. You do not need an Airtable account for this demonstration.
 
+**First time here?** [See the finished sample, try 10–50 of your own photos, and tell us whether the result fits your work](docs/FIRST-EXPORT.md). You can inspect the ZIP and Excel sample before installing anything. Feedback about installation problems is welcome too.
+
 ## Use your own Airtable data
 
 **CSV — simplest:** export a fresh CSV from your Airtable grid view, include the attachment column and the fields you want to group by, then import it into PhotoPort. CSV must contain official Airtable attachment URLs, not just filenames. Those URLs expire; export a fresh CSV if necessary. CSV rows use synthetic row IDs unless your CSV explicitly includes an original record-ID field; that field remains in the original-data export.
 
-**Read-only connection — optional:** create a [personal access token](https://airtable.com/create/tokens) with only `data.records:read` and `schema.bases:read`, limited to the base you want to export. Select **使用只读连接**, enter the table/view URL and token. The token stays in process memory; after a restart you must reconnect. The local edition does not include hosted OAuth login.
+**Read-only connection — optional:** create a [personal access token](https://airtable.com/create/tokens) with only `data.records:read` and `schema.bases:read`, limited to the base you want to export. Select **Connect Airtable**, enter the table/view URL and token. The token stays in process memory; after a restart you must reconnect. The local edition does not include hosted OAuth login.
 
 1. Preview the selected table and attachment columns.
 2. Select records and choose folders: per record, by one field, or by two fields.
